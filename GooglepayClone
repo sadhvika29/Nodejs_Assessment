@@ -1,0 +1,116 @@
+const express = require('express');
+const bodyParser = require('body-parser');
+const random = require('random');
+
+const app = express();
+app.use(bodyParser.json());
+
+class GooglePayClone {
+  constructor() {
+    this.users = {};
+    this.transactions = [];
+  }
+
+  login(phoneNum) {
+    if (!this.users[phoneNum]) {
+      const initialAmount = parseFloat(prompt('Welcome! Enter initial amount to add to your wallet: '));
+      this.users[phoneNum] = { availableAmount: initialAmount };
+    }
+    console.log('Login successful!');
+  }
+
+  transferAmount(senderPhone, recipientPhone, amount) {
+    if (!this.users[senderPhone] || !this.users[recipientPhone]) {
+      console.log('Invalid sender or recipient.');
+      return;
+    }
+
+    const senderBalance = this.users[senderPhone].availableAmount;
+
+    if (amount > senderBalance) {
+      console.log('Insufficient balance.');
+      return;
+    }
+
+    // Deduct amount from sender and credit it to the recipient
+    this.users[senderPhone].availableAmount -= amount;
+    this.users[recipientPhone].availableAmount += amount;
+
+    // Record the transaction
+    const transaction = { from: senderPhone, to: recipientPhone, amount: amount };
+    this.transactions.push(transaction);
+
+    // Handle cashback
+    this.handleCashback(amount);
+
+    console.log('Transaction successful!');
+  }
+
+  handleCashback(amount) {
+    if (amount % 500 === 0) {
+      console.log("Better luck next time! No cashback for round amounts.");
+    } else {
+      const cashbackPercentage = amount < 1000 ? 5 : 2;
+      const cashbackAmount = (cashbackPercentage / 100) * amount;
+      console.log(`Congratulations! You received ${cashbackPercentage}% cashback: ${cashbackAmount}`);
+    }
+  }
+
+  displayInformation(phoneNum) {
+    if (!this.users[phoneNum]) {
+      console.log('Invalid user.');
+      return;
+    }
+
+    const userData = this.users[phoneNum];
+    console.log(`Available Amount: ${userData.availableAmount}`);
+  }
+
+  displayTransactionHistory(phoneNum) {
+    if (!this.users[phoneNum]) {
+      console.log('Invalid user.');
+      return;
+    }
+
+    const userTransactions = this.transactions.filter(t => t.from === phoneNum || t.to === phoneNum);
+    console.log('Transaction History:');
+    for (const transaction of userTransactions) {
+      console.log(`From: ${transaction.from}, To: ${transaction.to}, Amount: ${transaction.amount}`);
+    }
+  }
+}
+
+const googlePay = new GooglePayClone();
+
+// Endpoint for user login
+app.post('/login', (req, res) => {
+  const phoneNum = req.body.phoneNum;
+  googlePay.login(phoneNum);
+  res.send('Login successful!');
+});
+
+// Endpoint for transferring amount
+app.post('/transfer', (req, res) => {
+  const { senderPhone, recipientPhone, amount } = req.body;
+  googlePay.transferAmount(senderPhone, recipientPhone, amount);
+  res.send('Transaction successful!');
+});
+
+// Endpoint for displaying user information
+app.get('/info/:phoneNum', (req, res) => {
+  const phoneNum = req.params.phoneNum;
+  googlePay.displayInformation(phoneNum);
+  res.send('User information displayed.');
+});
+
+// Endpoint for displaying user transaction history
+app.get('/history/:phoneNum', (req, res) => {
+  const phoneNum = req.params.phoneNum;
+  googlePay.displayTransactionHistory(phoneNum);
+  res.send('Transaction history displayed.');
+});
+
+const PORT = 3000;
+app.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`);
+});
